@@ -16,6 +16,9 @@ git clone https://github.com/your-org/your-project-name
 <run instructions>
 ```
 
+## Project Backlog
+View all open issues and the project backlog in [BACKLOG.md](BACKLOG.md) or on [GitHub Issues](https://github.com/ECU-Pirate-Forge/pulse/issues).
+
 ## Documentation
 See the docs folder for architecture, API, troubleshooting, and contribution guidelines.
 
