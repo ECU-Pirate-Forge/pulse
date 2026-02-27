@@ -1,0 +1,45 @@
+html, body {
+    font-family: 'Roboto', sans-serif;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.mud-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.mud-main-content {
+    flex: 1;
+    overflow-y: auto;
+}
+
+#blazor-error-ui {
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+    left: 0;
+    padding: 6px 12px;
+    position: fixed;
+    right: 0;
+    z-index: 1000;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 3.5rem;
+    top: 0.5rem;
+}
+
+.mud-input-error {
+    color: #f44336;
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+}

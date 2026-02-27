@@ -1,0 +1,418 @@
+@page "/instructor/create-question"
+@using Pulse.Models
+@using Pulse.Services
+@using System.ComponentModel.DataAnnotations
+@inject IQuestionService QuestionService
+@inject NavigationManager NavigationManager
+
+<div style="max-width: 600px; margin: 2rem auto; padding: 0 1rem; overflow: visible;">
+    <div style="padding: 1.5rem; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: visible; position: relative;">
+        <MudText Style="font-size: 1.25rem; font-weight: 600;">Create New Question</MudText>
+
+        @if (!string.IsNullOrEmpty(_successMessage))
+        {
+            <div class="alert alert-success mb-4 d-flex justify-between align-center">
+                <span>@_successMessage</span>
+                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="@(() => _successMessage = string.Empty)" />
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div class="alert alert-danger mb-4 d-flex justify-between align-center">
+                <span>@_errorMessage</span>
+                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="@(() => _errorMessage = string.Empty)" />
+            </div>
+        }
+
+        <EditForm Model="@_newQuestion" OnValidSubmit="@HandleSubmit">
+            <DataAnnotationsValidator />
+
+            <!-- Question Text Field -->
+            <div class="mb-6">
+                <MudTextField @bind-Value="@_newQuestion.QuestionText"
+                              T="string"
+                              Label="Question"
+                              Placeholder="Enter your question here..."
+                              Lines="4"
+                              Variant="Variant.Outlined"
+                              Counter="500"
+                              MaxLength="500"
+                              HelperText="Maximum 500 characters"
+                              Class="full-width">
+                </MudTextField>
+                <ValidationMessage For="@(() => _newQuestion.QuestionText)" Class="mud-input-error" />
+            </div>
+
+            <!-- Answer Type Selection -->
+            <div style="margin-bottom: 2rem;">
+                <MudRadioGroup @bind-Value="@_newQuestion.AnswerType" T="AnswerType">
+                    <MudRadio Value="AnswerType.MCQ" Color="Color.Primary">Multiple Choice (MCQ)</MudRadio>
+                    <MudRadio Value="AnswerType.FreeText" Color="Color.Primary">Free Text Response</MudRadio>
+                </MudRadioGroup>
+                <ValidationMessage For="@(() => _newQuestion.AnswerType)" Class="mud-input-error" />
+            </div>
+
+            <!-- MCQ Options (conditionally displayed) -->
+            @if (_newQuestion.AnswerType == AnswerType.MCQ)
+            {
+                <div class="mb-6">
+                    <div style="margin-bottom: 1rem; margin-top: 1rem;">Multiple Choice Options</div>
+                    <div style="margin-bottom: 1rem; font-size: 0.9rem;">
+                        Add 2-6 options for students to choose from. Check the box to mark as correct answer.
+                    </div>
+
+                    @for (int i = 0; i < _newQuestion.MCQOptions.Count; i++)
+                    {
+                        int index = i; // Capture for closure
+                        bool isCorrect = _newQuestion.CorrectOptionIndices.Contains(index);
+                        <div class="mb-3" style="display: flex; gap: 0.5rem; align-items: flex-start;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" 
+                                       id="correct_@index"
+                                       checked="@isCorrect"
+                                       @onchange="@((ChangeEventArgs e) => OnCorrectOptionChanged(index, (bool)e.Value!))" />
+                                <span>Correct</span>
+                            </label>
+                            <MudTextField @bind-Value="@_newQuestion.MCQOptions[index]"
+                                          Label="@($"Option {index + 1}")"
+                                          Placeholder="Enter option text"
+                                          Variant="Variant.Outlined"
+                                          MaxLength="200"
+                                          Style="flex: 1;">
+                            </MudTextField>
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                           Color="Color.Error"
+                                           Size="Size.Small"
+                                           OnClick="@(() => RemoveOption(index))"
+                                           Class="mt-2">
+                            </MudIconButton>
+                        </div>
+                    }
+
+                    @if (_newQuestion.MCQOptions.Count < 6)
+                    {
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="@AddOption"
+                                   Class="mt-2">
+                            Add Option
+                        </MudButton>
+                    }
+
+                    @if (_mcqValidationError != null)
+                    {
+                        <MudAlert Severity="Severity.Error" Class="mt-3">
+                            @_mcqValidationError
+                        </MudAlert>
+                    }
+                </div>
+            }
+
+            <!-- Timer Field -->
+            <div class="mb-6">
+                <MudNumericField @bind-Value="@_newQuestion.TimerSeconds"
+                                 Label="Time Limit (seconds)"
+                                 Min="5"
+                                 Max="600"
+                                 Step="5"
+                                 Variant="Variant.Outlined"
+                                 HelperText="Between 5 and 600 seconds (10 minutes)">
+                </MudNumericField>
+                <ValidationMessage For="@(() => _newQuestion.TimerSeconds)" Class="mud-input-error" />
+            </div>
+
+            <!-- Anonymity Toggle -->
+            <div class="mb-6">
+                <MudSwitch @bind-Value="@_newQuestion.IsAnonymous"
+                           T="bool"
+                           Label="Anonymous Responses"
+                           Color="Color.Primary">
+                </MudSwitch>
+                <div style="margin-top: 0.5rem; font-size: 0.85rem; color: #999;">
+                    When enabled, student names will not be visible with their responses
+                </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="d-flex gap-3 justify-end">
+                <MudButton Variant="Variant.Outlined"
+                           OnClick="@HandleCancel">
+                    Cancel
+                </MudButton>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           ButtonType="ButtonType.Submit"
+                           Disabled="@_isSubmitting">
+                    @if (_isSubmitting)
+                    {
+                        <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                        <MudText Class="ms-2">Submitting...</MudText>
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Send" Class="me-2" />
+                        <MudText>Send Question</MudText>
+                    }
+                </MudButton>
+            </div>
+        </EditForm>
+    </div>
+
+    <!-- Display submitted questions (for development/debugging) -->
+    @if (_submittedQuestions.Any())
+    {
+        <MudPaper Elevation="1" Class="pa-6 mt-8">
+            <div style="margin-bottom: 2rem; margin-top: 2rem;">Submitted Questions (@_submittedQuestions.Count)</div>
+            <MudSimpleTable Striped="true" Hover="true">
+                <thead>
+                    <tr>
+                        <th>Question</th>
+                        <th>Type</th>
+                        <th>Timer</th>
+                        <th>Anonymous</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var q in _submittedQuestions)
+                    {
+                        <tr>
+                            <td>@q.QuestionText</td>
+                            <td>@q.AnswerType</td>
+                            <td>@q.TimerSeconds seconds</td>
+                            <td>
+                                <MudCheckBox @bind-Value="@q.IsAnonymous" T="bool" Disabled="true" />
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        </MudPaper>
+    }
+</div>
+
+@code {
+    private QuestionModel _newQuestion = new();
+    private List<QuestionModel> _submittedQuestions = new();
+    private string _successMessage = string.Empty;
+    private string _errorMessage = string.Empty;
+    private string? _mcqValidationError = null;
+    private bool _isSubmitting = false;
+
+    protected override void OnInitialized()
+    {
+        // Initialize with default MCQ option
+        _newQuestion.MCQOptions = new List<string> { string.Empty };
+    }
+
+    /// <summary>
+    /// Adds a new empty option to the MCQ list
+    /// </summary>
+    private void AddOption()
+    {
+        if (_newQuestion.MCQOptions.Count < 6)
+        {
+            _newQuestion.MCQOptions.Add(string.Empty);
+        }
+    }
+
+    /// <summary>
+    /// Removes an option from the MCQ list at the specified index
+    /// </summary>
+    private void RemoveOption(int index)
+    {
+        if (_newQuestion.MCQOptions.Count > 1)
+        {
+            _newQuestion.MCQOptions.RemoveAt(index);
+            // Also remove from correct indices
+            _newQuestion.CorrectOptionIndices.Remove(index);
+            // Adjust indices for removed items
+            _newQuestion.CorrectOptionIndices = _newQuestion.CorrectOptionIndices
+                .Where(i => i != index)
+                .Select(i => i > index ? i - 1 : i)
+                .ToList();
+            _mcqValidationError = null;
+        }
+    }
+
+    /// <summary>
+    /// Handles checkbox change for marking correct answers
+    /// </summary>
+    private void OnCorrectOptionChanged(int index, bool isChecked)
+    {
+        if (isChecked && !_newQuestion.CorrectOptionIndices.Contains(index))
+        {
+            _newQuestion.CorrectOptionIndices.Add(index);
+        }
+        else if (!isChecked && _newQuestion.CorrectOptionIndices.Contains(index))
+        {
+            _newQuestion.CorrectOptionIndices.Remove(index);
+        }
+    }
+
+    /// <summary>
+    /// Handles form submission - validates and submits the question
+    /// </summary>
+    private async Task HandleSubmit()
+    {
+        _isSubmitting = true;
+        _errorMessage = string.Empty;
+        _successMessage = string.Empty;
+        _mcqValidationError = null;
+
+        try
+        {
+            // Validate MCQ options if needed
+            if (_newQuestion.AnswerType == AnswerType.MCQ)
+            {
+                // Remove empty options before validation
+                var filledOptions = _newQuestion.MCQOptions
+                    .Where(o => !string.IsNullOrWhiteSpace(o))
+                    .ToList();
+
+                if (filledOptions.Count < 2)
+                {
+                    _mcqValidationError = "Please provide at least 2 options for multiple choice questions.";
+                    _isSubmitting = false;
+                    return;
+                }
+
+                if (filledOptions.Count > 6)
+                {
+                    _mcqValidationError = "Maximum 6 options allowed for multiple choice questions.";
+                    _isSubmitting = false;
+                    return;
+                }
+
+                // Validate that at least one correct answer is selected
+                if (_newQuestion.CorrectOptionIndices.Count == 0)
+                {
+                    _mcqValidationError = "Please select at least one correct answer.";
+                    _isSubmitting = false;
+                    return;
+                }
+
+                _newQuestion.MCQOptions = filledOptions;
+            }
+
+            // Submit the question to the service
+            var createdQuestion = await QuestionService.CreateQuestionAsync(_newQuestion);
+
+            // Add to local list for display
+            _submittedQuestions.Add(createdQuestion);
+
+            // Show success message
+            _successMessage = $"Question created successfully! (ID: {createdQuestion.Id})";
+
+            // Reset form
+            _newQuestion = new();
+            _newQuestion.MCQOptions = new List<string> { string.Empty };
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error creating question: {ex.Message}";
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    /// <summary>
+    /// Handles cancel action - navigates back or resets form
+    /// </summary>
+    private void HandleCancel()
+    {
+        // Option 1: Navigate back to instructor dashboard
+        // NavigationManager.NavigateTo("/instructor/dashboard");
+
+        // Option 2: Reset the form (current behavior)
+        _newQuestion = new();
+        _newQuestion.MCQOptions = new List<string> { string.Empty };
+        _errorMessage = string.Empty;
+        _successMessage = string.Empty;
+        _mcqValidationError = null;
+    }
+}
+
+<style>
+    .full-width {
+        width: 100%;
+    }
+
+    .gap-2 {
+        gap: 0.5rem;
+    }
+
+    .gap-3 {
+        gap: 1rem;
+    }
+
+    .justify-end {
+        justify-content: flex-end;
+    }
+
+    .justify-between {
+        justify-content: space-between;
+    }
+
+    .align-center {
+        align-items: center;
+    }
+
+    .d-flex {
+        display: flex;
+    }
+
+    .mt-2 {
+        margin-top: 0.5rem;
+    }
+
+    .mt-3 {
+        margin-top: 1rem;
+    }
+
+    .mb-3 {
+        margin-bottom: 1rem;
+    }
+
+    .mb-4 {
+        margin-bottom: 1.5rem;
+    }
+
+    .mb-6 {
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: visible;
+    }
+
+    .flex-grow-1 {
+        flex: 1;
+    }
+
+    .alert {
+        padding: 1rem;
+        border-radius: 4px;
+        border-left: 4px solid;
+    }
+
+    .alert-success {
+        background-color: #f1f8f4;
+        border-color: #4caf50;
+        color: #2e7d32;
+    }
+
+    .alert-danger {
+        background-color: #fef5f5;
+        border-color: #f44336;
+        color: #c62828;
+    }
+
+    .mud-input-error {
+        color: #f44336;
+        font-size: 0.75rem;
+        margin-top: 0.25rem;
+        display: block;
+    }
+</style>

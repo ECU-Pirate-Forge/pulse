@@ -1,0 +1,19 @@
+@inherits LayoutComponentBase
+@using MudBlazor
+
+<MudThemeProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudPopoverProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudText>Pulse - Question Creator</MudText>
+        <MudSpacer />
+    </MudAppBar>
+    <MudMainContent>
+        <div style="padding: 20px;">
+            @Body
+        </div>
+    </MudMainContent>
+</MudLayout>
