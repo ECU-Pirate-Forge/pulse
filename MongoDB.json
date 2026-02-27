@@ -1,29 +1,29 @@
 [
-    {
-      "question": "Why is the sky blue?",
-      "questionTypeId": 1,
-      "responseCategory": "Science Fundamentals",
-      "responseOptions": {
-        "choices": [
-          "Because of ocean reflection",
-          "Because of Rayleigh scattering",
-          "Because clouds are white",
-          "Because of sunlight heat"
-        ],
-        "answer": "Because of Rayleigh scattering"
-      }
-    },
-    {
-      "question": "Which of the following are Agile principles?",
-      "questionTypeId": 2,
-      "responseCategory": "Agile Methodology",
-      "responseOptions": {
-        "choices": [
-          "Customer collaboration",
-          "Responding to change",
-          "Comprehensive documentation",
-          "Individuals and interactions"
-        ]
-      }
+  {
+    "question": "How is software project management going for you?",
+    "questionTypeId": 2,
+    "responseCategory": "Course Feedback",
+    "responseOptions": {
+      "choices": [
+        "Awesome",
+        "Good",
+        "Meh",
+        "Not good"
+      ]
     }
-  ]
+  },
+  {
+    "question": "Which of the following best describes effective software project management?",
+    "questionTypeId": 1,
+    "responseCategory": "Project Management Concepts",
+    "responseOptions": {
+      "choices": [
+        "Delivering projects randomly without planning",
+        "Managing scope, time, cost, and quality effectively",
+        "Allowing unlimited changes without control",
+        "Focusing only on coding speed"
+      ],
+      "answer": "Managing scope, time, cost, and quality effectively"
+    }
+  }
+]
