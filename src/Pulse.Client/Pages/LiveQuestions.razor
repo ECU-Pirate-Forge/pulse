@@ -1,0 +1,263 @@
+@page "/live-questions"
+@using System.Net.Http.Json
+@using System.Globalization
+@using System.Text
+@using Microsoft.AspNetCore.SignalR.Client
+@implements IAsyncDisposable
+@inject IConfiguration Configuration
+
+<PageTitle>Live Questions</PageTitle>
+
+<h1>Live Question Feed</h1>
+
+<p class="connection-status">
+    Hub status:
+    <span class="@HubStatusCssClass">
+        @HubStatusText
+    </span>
+</p>
+
+@if (!string.IsNullOrWhiteSpace(_connectionError))
+{
+    <div class="alert alert-warning" role="alert">
+        @_connectionError
+    </div>
+}
+
+<div class="card mb-4">
+    <div class="card-header">
+        Instructor Demo Publisher
+    </div>
+    <div class="card-body">
+        <div class="mb-3">
+            <label class="form-label">Session ID</label>
+            <input class="form-control" @bind="_draftQuestion.SessionId" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Instructor ID</label>
+            <input class="form-control" @bind="_draftQuestion.InstructorId" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Question Type</label>
+            <select class="form-select" @bind="_draftQuestion.QuestionType">
+                <option value="MultipleChoice">Multiple Choice</option>
+                <option value="Likert">Likert Scale</option>
+                <option value="OpenEnded">Open Ended</option>
+                <option value="TrueFalse">True/False</option>
+                <option value="ShortAnswer">Short Answer</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Question Text</label>
+            <textarea class="form-control" rows="3" @bind="_draftQuestion.QuestionText"></textarea>
+        </div>
+        <button class="btn btn-primary" @onclick="PublishQuestionAsync" disabled="@_isPublishing">
+            @(_isPublishing ? "Publishing..." : "Publish Question")
+        </button>
+        @if (!string.IsNullOrWhiteSpace(_publishError))
+        {
+            <p class="text-danger mt-3 mb-0">@_publishError</p>
+        }
+    </div>
+</div>
+
+<h2 class="h4">Incoming Updates (@_questions.Count)</h2>
+
+@if (_questions.Count == 0)
+{
+    <p>No live updates yet. Publish a question to see it appear instantly.</p>
+}
+else
+{
+    <ul class="list-group">
+        @foreach (var question in _questions)
+        {
+            <li class="list-group-item question-update-item">
+                <div class="question-update-top">
+                    <span class="badge text-bg-light border">@HumanizeToken(question.QuestionType)</span>
+                    <time class="published-at" datetime="@question.PublishedAtUtc.ToString("O")">
+                        @FormatPublishedAt(question.PublishedAtUtc)
+                    </time>
+                </div>
+                <div class="question-prompt">@DisplayOrFallback(question.QuestionText, "No question text provided.")</div>
+                <div class="question-meta-grid">
+                    <span><strong>Session:</strong> @DisplayOrFallback(question.SessionId)</span>
+                    <span><strong>Instructor:</strong> @HumanizeToken(question.InstructorId)</span>
+                    <span><strong>Question ID:</strong> @ShortQuestionId(question.QuestionId)</span>
+                </div>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private readonly List<NewQuestionPublishedDto> _questions = [];
+    private PublishQuestionRequestDto _draftQuestion = new()
+    {
+        SessionId = "CSCI-401",
+        InstructorId = "instructor-demo",
+        QuestionType = "MultipleChoice"
+    };
+
+    private HubConnection? _hubConnection;
+    private HttpClient? _instructorApiClient;
+    private bool _isConnected;
+    private bool _isPublishing;
+    private string? _connectionError;
+    private string? _publishError;
+    private string HubStatusCssClass => _isConnected ? "text-success" : (_connectionError is null ? "text-warning" : "text-danger");
+    private string HubStatusText => _isConnected ? "Connected" : (_connectionError is null ? "Connecting" : "Disconnected");
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var serverBaseUrl = (Configuration["RealtimeServerBaseUrl"] ?? "https://localhost:7227").TrimEnd('/');
+            _instructorApiClient = new HttpClient { BaseAddress = new Uri(serverBaseUrl) };
+
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl($"{serverBaseUrl}{PulseRealtimeConstants.HubRoute}")
+                .WithAutomaticReconnect()
+                .Build();
+
+            _hubConnection.On<NewQuestionPublishedDto>(
+                PulseRealtimeConstants.NewQuestionPublishedEvent,
+                question =>
+                {
+                    _questions.Insert(0, question);
+                    _ = InvokeAsync(StateHasChanged);
+                });
+
+            _hubConnection.Reconnecting += _ =>
+            {
+                _isConnected = false;
+                _connectionError = "Connection to live updates was interrupted. Reconnecting...";
+                return InvokeAsync(StateHasChanged);
+            };
+
+            _hubConnection.Reconnected += _ =>
+            {
+                _isConnected = true;
+                _connectionError = null;
+                return InvokeAsync(StateHasChanged);
+            };
+
+            _hubConnection.Closed += exception =>
+            {
+                _isConnected = false;
+                _connectionError = exception is null
+                    ? "Disconnected from live updates."
+                    : $"Disconnected from live updates: {exception.Message}";
+                return InvokeAsync(StateHasChanged);
+            };
+
+            await _hubConnection.StartAsync();
+            _isConnected = true;
+            _connectionError = null;
+        }
+        catch (Exception ex)
+        {
+            _isConnected = false;
+            _connectionError = $"Unable to connect to live updates. Confirm the server is running and reachable. Details: {ex.Message}";
+        }
+    }
+
+    private async Task PublishQuestionAsync()
+    {
+        _publishError = null;
+
+        if (_instructorApiClient is null)
+        {
+            _publishError = "Instructor API client is not initialized.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_draftQuestion.QuestionText))
+        {
+            _publishError = "Question text is required.";
+            return;
+        }
+
+        _isPublishing = true;
+        try
+        {
+            var response = await _instructorApiClient.PostAsJsonAsync(
+                PulseRealtimeConstants.PublishQuestionApiRoute,
+                _draftQuestion);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _publishError = $"Publish failed ({(int)response.StatusCode} {response.ReasonPhrase}).";
+                return;
+            }
+
+            _draftQuestion.QuestionText = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            _publishError = $"Publish failed: {ex.Message}";
+        }
+        finally
+        {
+            _isPublishing = false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection is not null)
+        {
+            await _hubConnection.DisposeAsync();
+        }
+
+        _instructorApiClient?.Dispose();
+    }
+
+    private static string FormatPublishedAt(DateTimeOffset publishedAtUtc)
+    {
+        return publishedAtUtc.ToLocalTime().ToString("ddd, MMM d 'at' h:mm tt", CultureInfo.CurrentCulture);
+    }
+
+    private static string HumanizeToken(string value)
+    {
+        var normalized = DisplayOrFallback(value);
+        var sb = new StringBuilder(normalized.Length + 8);
+
+        for (var i = 0; i < normalized.Length; i++)
+        {
+            var current = normalized[i];
+            var previous = i == 0 ? '\0' : normalized[i - 1];
+
+            if (current is '_' or '-')
+            {
+                sb.Append(' ');
+                continue;
+            }
+
+            if (i > 0 && char.IsUpper(current) && char.IsLower(previous))
+            {
+                sb.Append(' ');
+            }
+
+            sb.Append(current);
+        }
+
+        return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(sb.ToString().ToLowerInvariant().Trim());
+    }
+
+    private static string DisplayOrFallback(string value, string fallback = "Not provided")
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+    }
+
+    private static string ShortQuestionId(string questionId)
+    {
+        if (string.IsNullOrWhiteSpace(questionId))
+        {
+            return "Auto-generated";
+        }
+
+        var compactId = questionId.Trim();
+        return compactId.Length <= 8 ? compactId : compactId[..8].ToUpperInvariant();
+    }
+}

@@ -1,0 +1,35 @@
+.connection-status {
+    font-weight: 600;
+}
+
+.question-update-item {
+    padding: 0.9rem 1rem;
+}
+
+.question-update-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.45rem;
+}
+
+.published-at {
+    color: var(--bs-secondary-color);
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.question-prompt {
+    font-size: 1rem;
+    line-height: 1.45;
+    margin-bottom: 0.4rem;
+}
+
+.question-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.25rem 0.8rem;
+    color: var(--bs-secondary-color);
+    font-size: 0.86rem;
+}
