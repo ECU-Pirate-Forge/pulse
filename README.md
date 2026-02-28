@@ -17,8 +17,13 @@ Session management & data storage — Questions are tied to specific class sessi
 ```bash
 git clone https://github.com/your-org/your-project-name
 
-<install instructions>
-<run instructions>
+dotnet restore Pulse.sln
+dotnet run --project BackendAPI/BackendAPI.csproj
+```
+
+## Testing
+```bash
+dotnet test Pulse.sln
 ```
 
 ## Documentation

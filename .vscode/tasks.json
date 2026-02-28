@@ -1,0 +1,77 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "dotnet restore/build/test Pulse.sln",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"restore",
+				"Pulse.sln"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "dotnet build Pulse.sln",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"Pulse.sln"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "dotnet test Pulse.sln",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"test",
+				"Pulse.sln"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "dotnet restore Pulse.sln",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"restore",
+				"Pulse.sln"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "dotnet build Pulse.sln",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"Pulse.sln"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "dotnet test Pulse.sln",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"test",
+				"Pulse.sln"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		}
+	]
+}

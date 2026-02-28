@@ -1,0 +1,16 @@
+@BackendAPI_HostAddress = http://localhost:5140
+
+POST {{BackendAPI_HostAddress}}/api/questions
+Content-Type: application/json
+
+{
+	"questionText": "What is your favorite color?",
+	"questionTypeId": 1,
+	"responseCategory": "survey",
+	"responseOptions": {
+		"choices": ["Blue", "Green", "Red"],
+		"answer": null
+	}
+}
+
+###
